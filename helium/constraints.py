@@ -2,37 +2,36 @@ from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
 import pandas as pd
 
-__all__ == ['LongOnly', 'LeverageLimit', 'LongCash', 'MaxTrade']
-
 class BaseConstraint(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
         self.w_benchmark = kwargs.pop('w_benchmark', 0.)
+        self.cash_ticker = kwargs.pop('cash_ticker', '_CASH')
 
-    def weight_expr(self, t, w_post, z, v):
+    def expr(self, t, w_plus, z, v):
         """Create a list of optimisation constraints
 
         Args:
             t: time
-            w_post: post-trade weights
+            w_plus: post-trade weights
             z: trade weights
             v: portfolio dollar value
         """
-        return self._weight_expression(self, t, w_post - self.w_benchmark, z, v)
-
+        return self._expr(self, t, w_plus - self.w_benchmark, z, v)
 
     @abstractmethod
-    def _weight_expr(self, t, w_post, z, v):
-        """Create a list of optimisation constraints
+    def _expr(self, t, w_plus, z, v):
+         raise NotImplementedError
 
-        Args:
-            t: time
-            w_post: post-trade weights
-            z: trade weights
-            v: portfolio dollar value
-        """
-        pass
+class TradeLimitConstraint(BaseConstraint):
+    def __init__(self, **kwargs):
+        super(TradeLimitConstraint, self).__init__(**kwargs)
+
+    def _expr(self, t, w_plus, z, v):
+        z = z.copy()
+        z[self.cash_ticker] = 0.
+        return v * cvx.abs(z) <= self.ADVs.loc[t].values * self.max_fraction
 
 class LongOnly(BaseConstraint):
     """Constraint on Long only, i.e., weights >=0"""
@@ -40,8 +39,8 @@ class LongOnly(BaseConstraint):
     def __init__(self, **kwargs):
         super(LongOnly, self).__init__(**kwargs)
 
-    def _weight_expr(self, t, w_post, z, v):
-        return w_post >= 0
+    def expr(self, t, w_plus, z, v):
+        return w_plus >= 0
 
 class LeverageLimit(BaseConstraint):
     """Constraint on leverage"""
@@ -50,23 +49,30 @@ class LeverageLimit(BaseConstraint):
         self.limit = limit
         super(LeverageLimit, self).__init__(**kwargs)
 
-    def _weight_expr(self, t, w_post, z, v):
-        return cvx.norm(w_post, 1) <= limit
+    def _expr(self, t, w_plus, z, v):
+        return cvx.norm(w_plus, 1) <= limit
 
-class LongCash(BaseConstraint):
-    def __init__(self, **kwargs):
+class MinCashBalanceConstraint(BaseConstraint):
+    def __init__(self, threshold, **kwargs):
+        self.threshold = threshold 
         super(LongCash, self).__init__(**kwargs)
 
-    def _weight_expr(self, t, w_post, z, v):
-        return w_post[-1] >= 0.
+    def _expr(self, t, w_plus, z, v):
+        return w_plus['_CASH'] >= self.threshold
 
 class MaxTrade(BaseConstraint):
     """Constraint on maximum trainding size"""
 
-    def __init__(self, ADVs, max_fraction=0.05, **kwargs):
-        self.ADVs = ADVs
+    def __init__(self, dollar_volume, max_fraction=0.05, **kwargs):
+        """
+        Args:
+            dollar_volume: pd.DataFrame with tickers as columns and time as index
+        """
+        self.dollar_volume = dollar_volume
         self.max_fraction = max_fraction
         super(MaxTrade, self).__init__(**kwargs)
 
-    def _weight_expr(self, t, w_post, z, v):
-        cvx.abs(z) * v <= ADVs * self.max_fraction
+    def _expr(self, t, w_post, z, v):
+        z = z.copy()
+        z[self.cash_ticker] = 0.
+        return cvx.abs(z) * v <= self.max_fraction * self.dollar_volume.loc[t].values

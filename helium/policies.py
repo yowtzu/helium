@@ -39,7 +39,7 @@ class SinglePeriodOpt(BasePolicy):
   
         self.return_forecast = return_forecast
         self.costs = costs
-        self constraints = constraints
+        self.constraints = constraints
 
 
     def get_trades(self, holding):
