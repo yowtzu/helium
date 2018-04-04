@@ -2,8 +2,6 @@ from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
 import pandas as pd
 
-__all__ == ['LongOnly', 'LeverageLimit', 'LongCash', 'MaxTrade']
-
 class BaseConstraint(object):
     __metaclass__ = ABCMeta
 
@@ -19,7 +17,7 @@ class BaseConstraint(object):
             w_plus: post-trade weights
             z: trade weights
             v: portfolio dollar value
-        """`
+        """
         return self._expr(self, t, w_plus - self.w_benchmark, z, v)
 
     @abstractmethod
