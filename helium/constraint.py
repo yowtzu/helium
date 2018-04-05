@@ -2,6 +2,8 @@ from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
 import pandas as pd
 
+__all__ = [ 'TradeLimitConstraint', 'LongOnlyConstraint', 'LeverageLimitConstraint', 'MinCashBalanceConstraint', 'MaxTradeConstraint' ]
+
 class BaseConstraint(object):
     __metaclass__ = ABCMeta
 
@@ -33,7 +35,7 @@ class TradeLimitConstraint(BaseConstraint):
         z[self.cash_ticker] = 0.
         return v * cvx.abs(z) <= self.ADVs.loc[t].values * self.max_fraction
 
-class LongOnly(BaseConstraint):
+class LongOnlyConstraint(BaseConstraint):
     """Constraint on Long only, i.e., weights >=0"""
 
     def __init__(self, **kwargs):
@@ -42,7 +44,7 @@ class LongOnly(BaseConstraint):
     def expr(self, t, w_plus, z, v):
         return w_plus >= 0
 
-class LeverageLimit(BaseConstraint):
+class LeverageLimitConstraint(BaseConstraint):
     """Constraint on leverage"""
 
     def __init__(self, limit, **kwargs):
@@ -60,7 +62,7 @@ class MinCashBalanceConstraint(BaseConstraint):
     def _expr(self, t, w_plus, z, v):
         return w_plus['_CASH'] >= self.threshold
 
-class MaxTrade(BaseConstraint):
+class MaxTradeConstraint(BaseConstraint):
     """Constraint on maximum trainding size"""
 
     def __init__(self, dollar_volume, max_fraction=0.05, **kwargs):
