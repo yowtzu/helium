@@ -2,7 +2,9 @@ from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
 import pandas as pd
 
-class BaseReturnForecast(object):
+__all__ = [ 'DefaultRet', ]
+
+class BaseRet(object):
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
@@ -18,7 +20,7 @@ class BaseReturnForecast(object):
             z: trade weights
             v: portfolio dollar value
             tau: prediction target time. if tau=None means t
-        """`
+        """
         if tau is None:
             tau = t
         return self._estimate(self, t, w_plus - self.w_benchmark, z, v, tau)
@@ -27,19 +29,19 @@ class BaseReturnForecast(object):
     def _expr(self, t, w_plus, z, v):
          raise NotImplementedError
 
-class DefaultReturnForecast(BaseReturnForecast):
-    def __init__(self, returns, gamma_decay, **kwargs):
-        super(SPReturnForecast, self).__init__(**kwargs)
-        self.returns = returns
+class DefaultRet(BaseRet):
+    def __init__(self, ret, gamma_decay, **kwargs):
+        super(SPRet, self).__init__(**kwargs)
+        self.ret = ret
         self.gamma_decay = gamma_decay
 
     def _estimate(self, t, w_plus, z, v, tau):
-        returns = returns.loc[t].values
-        estimate = cvx.sum_entries(w_plus * self.returns - w_plus * cvx.abs(self.delta))
+        ret = ret.loc[t].values
+        estimate = cvx.sum_entries(w_plus * self.ret - w_plus * cvx.abs(self.delta))
         if tau > t and self.gamma_decay is not None:
-            estimate * = (tau - t)**(-self.gamma_decay)
+            estimate *= (tau - t)**(-self.gamma_decay)
 
-class ReturnsForecast(BaseReturnForecast):
+class RetForecast(BaseRet):
     """A single alpha estimation.
 
     Attributes:
