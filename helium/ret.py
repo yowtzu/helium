@@ -2,12 +2,8 @@ from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
 import pandas as pd
 
-<<<<<<< HEAD:helium/ret.py
-__all__ = [ 'DefaultRet', ] 
-=======
 __all__ = [ 'DefaultRet', ]
 
->>>>>>> 74a744c194cddcc54ee1c7c5a9c138fc70b8a427:helium/ret.py
 class BaseRet(object):
     __metaclass__ = ABCMeta
 
@@ -34,15 +30,9 @@ class BaseRet(object):
          raise NotImplementedError
 
 class DefaultRet(BaseRet):
-<<<<<<< HEAD:helium/ret.py
-    def __init__(self, returns, gamma_decay, **kwargs):
-        super(DefaultRet, self).__init__(**kwargs)
-        self.returns = returns
-=======
     def __init__(self, ret, gamma_decay, **kwargs):
         super(SPRet, self).__init__(**kwargs)
         self.ret = ret
->>>>>>> 74a744c194cddcc54ee1c7c5a9c138fc70b8a427:helium/ret.py
         self.gamma_decay = gamma_decay
 
     def _estimate(self, t, w_plus, z, v, tau):
@@ -51,11 +41,7 @@ class DefaultRet(BaseRet):
         if tau > t and self.gamma_decay is not None:
             estimate *= (tau - t)**(-self.gamma_decay)
 
-<<<<<<< HEAD:helium/ret.py
-class ReturnsForecast(BaseRet):
-=======
 class RetForecast(BaseRet):
->>>>>>> 74a744c194cddcc54ee1c7c5a9c138fc70b8a427:helium/ret.py
     """A single alpha estimation.
 
     Attributes:

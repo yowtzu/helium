@@ -15,31 +15,42 @@ __all__ = [ "MarketSimulator" ]
 class MarketSimulator():
     """Simulate the financial market for a given strategy"""
 
-    def __init__(self, rets, costs, gamma, constraints, **kwargs):
+    def __init__(self, rets, soft_constraints, hard_constraints, **kwargs):
         log_level = kwargs.pop('log_level', logging.INFO)
         logging.basicConfig(level=log_level)
         
         self.rets = rets
-        self.costs = costs
-        self.constraints = constraints
+        self.soft_constraints = soft_constraints
+        self.hard_constraints = hard_constraints
         self.cash_ticker = kwargs.pop('cash_ticker', '_CASH')
-        
     
-    def step(self, h, u, t):
-        """Propagates the portfolio forward over time period t, given trades u.
+    def step(self, t, h, u):
+        """Run the portfolio at one time period t, given the current holding h andn trades u
 
         Args:
-            h: pandas Series object describing current portfolio
-            u: n vector with the stock trades (not cash)
+            h: pandas Series object describing current holding
+            u: pandas Series object describing trades
             t: current time
 
         Returns:
             h_next: portfolio after returns propagation
             u: trades vector with simulated cash balance
         """
-        h_plus = h + u
-        costs = [ simulated_hcost.estimate(t, h_plus, u) for cost in self.costs ] 
+        assert(h.index.equals(u.index))
+        v = sum(h)
+        z = u / v
+        costs = [ cost.estimate_unnormalised(t, h, u) for cost in self.costs ]
+        for cost in costs:
+            assert(not pd.isnull(cost))
+            assert(not np.isinf(cost))
+        
+        u[self.cash_ticker] = -(sum(u[u.index != self.cash_ticker] - sum(cost))
+        h_plus[self.cash_ticker] = h[self.cash_ticker] + u[self.cash_ticker]
 
+        h_next = (1 + self.rets.loc[t]) * h_plus
+        return h_next, u
+    
+    
         h_plus = self.returns.loc[t].values * h_plus  + h_plus
         return h_plus, u
          
