@@ -1,5 +1,7 @@
 from abc import ABCMeta, abstractmethod
 
+__all__ = [ 'FactorRisk', ]
+
 class BaseRisk(object):
     __metaclass__ = ABCMeta
 
@@ -23,10 +25,10 @@ class BaseRisk(object):
     def _estimate(self, t, w_plus, z, v):
          raise NotImplementedError
             
-class FactorModelRisk(BaseRisk):
-    
+class FactorRisk(BaseRisk):
+    '''PCA Based Factor risk model'''    
     def __init__(self, returns, **kwargs):
-        super(FactorModelRisk, self).__init__(**kwargs)
+        super(FactorRisk, self).__init__(**kwargs)
         self._construct_factor_model(returns)
 
     def _construct_factor_model(self, returns, window_size, n_factors, **kwargs):
