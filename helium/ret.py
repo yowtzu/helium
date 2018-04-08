@@ -23,24 +23,25 @@ class BaseRet(object):
         """
         if tau is None:
             tau = t
-        return self._estimate(self, t, w_plus - self.w_benchmark, z, v, tau)
+        return self._estimate(t, w_plus - self.w_benchmark, z, v, tau)
 
     @abstractmethod
-    def _expr(self, t, w_plus, z, v):
+    def _estimate(self, t, w_plus, z, v, tau):
          raise NotImplementedError
 
 class DefaultRet(BaseRet):
     def __init__(self, ret, gamma_decay, **kwargs):
-        super(SPRet, self).__init__(**kwargs)
+        super(DefaultRet, self).__init__(**kwargs)
         self.ret = ret
+        self.delta = 0.
         self.gamma_decay = gamma_decay
 
     def _estimate(self, t, w_plus, z, v, tau):
-        ret = ret.loc[t].values
-        estimate = cvx.sum_entries(w_plus * self.ret - w_plus * cvx.abs(self.delta))
+        ret = self.ret.loc[t].values
+        estimate = cvx.sum_entries(w_plus.T * ret - w_plus.T * cvx.abs(self.delta))
         if tau > t and self.gamma_decay is not None:
             estimate *= (tau - t)**(-self.gamma_decay)
-
+        return estimate
 class RetForecast(BaseRet):
     """A single alpha estimation.
 

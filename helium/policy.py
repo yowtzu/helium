@@ -2,7 +2,7 @@ from abc import ABCMeta, abstractmethod
 import pandas as pd
 import numpy as np
 import logging
-import cvxpy as cv
+import cvxpy as cvx
 
 class BasePolicy(object):
     """Base class for a trading policy."""
@@ -42,22 +42,28 @@ class SinglePeriodOpt(BasePolicy):
         self.constraints = constraints
 
 
-    def get_trades(self, holding):
-        w = holding  / holding.sum()
+    def get_trades(self, holding, t):
+        v = sum(holding)
+        w = holding  / v
         z = cvx.Variable(w.size)
         w_plus = w.values + z 
+        tau = t
+
+        ret = self.return_forecast.estimate(t, w_plus, z, v, tau)
+        assert(ret.is_concave())
+
+        costs = [ cost.estimate(t, w_plus, z, v, tau) for cost in self.costs ] 
+        for cost in costs:
+            assert(cost.is_convex())
         
-        alpha_term = self.return_forecast.weight_expr()
+        constraints = [ con.expr(t, w_plus, z, v, tau) for con in self.constraints ] 
+        constraints += [ cvx.sum_entries(z) == 0. ] 
+        for constraint in constraints:
+            assert(constraint.is_dcp())
 
-        assert(alpha_term.is_concave())
-        assert()
-
-        obj = 
-        constraints = 
-
-        prob = cvx.Problem(obj, constraints)
-          
-        trades = pd.Series()
+        prob = cvx.Problem(cvx.Maximize(ret - sum(costs)), constraints)
+        
+        trade = pd.Series()
         try:
             prob.solve()
             if prob.status == cvx.UNBOUNDED:
@@ -65,7 +71,7 @@ class SinglePeriodOpt(BasePolicy):
             elif prob.status == cvx.INFEASIBLE:
                 logging.error('The problem is infeasible')
             else:
-                trades = pd.Series(index=holding.index, data = z.value.A1 * value)
+                trades = pd.Series(index=holding.index, data =z.value.A1 * v)
         except cvx.SolverError:
             logging.error('The solver failed')
         
@@ -81,6 +87,3 @@ def MultiPeriodOpt():
         
         prob_list = []
         z_list = []
-
-        for tau in self.trading_times[t:t+5]:
-            fljffjklfj

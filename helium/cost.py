@@ -1,7 +1,7 @@
 from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
 
-__all__ = [ 'HoldingCost', 'TransactionCost', ]
+__all__ = [ 'BasicRiskCost', 'FactorRiskCost', 'HoldingCost', 'TransactionCost', ]
 
 class BaseCost(object):
     __metaclass__ = ABCMeta
@@ -20,7 +20,7 @@ class BaseCost(object):
         v = sum(h)
         z = u / v
         w_plus = (h + u) / v
-        return v * self.estimate(t, w_plus, z, v, tau)
+        return v * self.estimate(t, w_plus, z, v, t)
     
     def estimate(self, t, w_plus, z, v, tau):
         """ A cvx expression that represents the cost
@@ -33,11 +33,57 @@ class BaseCost(object):
             tau: prediction time
         """
         
-        return self._estimate(self, t, w_plus, z, v, tau)
+        return self._estimate(t, w_plus, z, v, tau)
 
     @abstractmethod
     def _estimate(self, t, w_plus, z, v, tau):
          raise NotImplementedError
+
+class BasicRiskCost(BaseCost):
+    def __init__(self, gamma, sigmas, **kwargs):
+        super(BasicRiskCost, self).__init__(**kwargs)
+        self.gamma = gamma
+        self.sigmas = sigmas
+
+    def _estimate(self, t, w_plus, z, v, tau):
+        sigma = self.sigmas.loc[t].values
+        return self.gamma * cvx.quad_form(w_plus, sigma) 
+
+class FactorRiskCost(BaseCost):
+    '''PCA Based Factor risk model'''    
+    def __init__(self, gamma, returns, window_size, n_factors, **kwargs):
+        super(FactorRiskCost, self).__init__(**kwargs)
+        self.gamma = gamma
+        self._construct_factor_model(returns)
+        self.window_size = window_size
+        self.n_factors = n_factors
+
+    def _construct_factor_model(self, returns, window_size, n_factors, **kwargs):
+        self.factor = {}
+        self.sigma = {}
+        self.idiosync = {}
+        
+        def _pca_factor(df):
+            t = df.index[-1]
+            k = self.n_factors
+            second_moments = df.values.T@df.values / df.values.shape[0]
+            eigen_values, eigen_vectors = np.linalg.eigh(second_moments)
+         
+            # eigen_values are returned in ascending oarder
+            self.factor[t] = eigen_values[-k:]
+            self.sigma[t] = eigen_vectors[:, -k:]
+            # residuals
+            self.idiosync[t] = eigen_vectors[:,:-k]@np.diag(eigen_values[:-k])@eigen_vectors[:,:-k].T
+        
+        for d in range(self.window_size, len(returns)):
+            _pca_factor(returns.loc[d-window_size:d])
+
+                                                                                                                                                                                               
+    def _estimate(self, t, w_plus, z, v, tau):
+        factor_risk = self.factor_risk[t]
+        factor_loading = self.factor_loading[t]
+        idiosync = self.idiosync.loc[t].values
+        return self.gamma * cvx.quad_form(w_plus.T * factor_loading, * factor_risk)
 
 class HoldingCost(BaseCost):
     """Model the holding costs"""
@@ -59,8 +105,8 @@ class HoldingCost(BaseCost):
         # w_plus[self.cash_ticker] = 0.
         borrow_costs = self.borrow_costs.loc[t].values
         dividends = self.dividends.loc[t].values
-        cost = cvx.neg(w_plus) * borrow_costs - w_plus * dividends
-        return gamma * cvx.sum_entries(cost)
+        cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
+        return self.gamma * cost
 
 class TransactionCost(BaseCost):
     def __init__(self, gamma, half_spread, nonlin_coef, sigmas, nonlin_power, volumes, asym_coef, **kwargs):
@@ -85,13 +131,12 @@ class TransactionCost(BaseCost):
 
     def _estimate(self, t, w_plus, z, v, tau):
         """Estimate transaction cost"""
-        z = z.copy()
-        z[self.cash_ticker] = 0.
+        #z = z.copy()
+        # z[self.cash_ticker] = 0. TO DO
         z_abs = cvx.abs(z)
         sigma = self.sigmas.loc[t].values
         volumes = self.volumes.loc[t].values
-        p = self.power
-        cost =  half_spread * z_abs + \
-            self.nonline_coef * sigmas * z_abs**self.power * (v / volumes)**(p-1) + \
+        cost =  self.half_spread * z_abs + \
+            self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1) + \
             self.asym_coef * z
-        return gamma * cvx.sum_entries(cost)
+        return self.gamma * cvx.sum_entries(cost)
