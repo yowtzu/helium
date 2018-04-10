@@ -38,12 +38,13 @@ class MarketSimulator():
         assert(h.index.equals(u.index))
         v = sum(h)
         z = u / v
-        costs = [ cost.estimate_unnormalised(t, h, u) for cost in self.costs ]
+        h_plus = h + u
+        costs =[0.01, 0.05] #TO DO[ cost.estimate_unnormalised(t, h, u) for cost in self.costs ]
         for cost in costs:
             assert(not pd.isnull(cost))
             assert(not np.isinf(cost))
         
-        u[self.cash_ticker] = -(sum(u[u.index != self.cash_ticker]) - sum(cost))
+        u[self.cash_ticker] = -(sum(u[u.index != self.cash_ticker]) - sum(costs))
         h_plus[self.cash_ticker] = h[self.cash_ticker] + u[self.cash_ticker]
 
         h_next = (1 + self.rets.loc[t]) * h_plus
@@ -56,7 +57,7 @@ class MarketSimulator():
     def run(self, h_init, policy, start_date, end_date, **kwargs):
         """Backtest a single policy"""
 
-        result = OrderedDict()
+        results = OrderedDict()
         h = h_init
         
         dates = self.rets[start_date:end_date].index
@@ -74,7 +75,8 @@ class MarketSimulator():
 
             logging.info('Propagating portfolio at time %s' % t)
             h_plus, u  = self.step(t, h, u)
-            results[t] = (h.copy(), u, copy(), h_plus.copy())
+            
+            results[t] = (h.copy(), u.copy(), h_plus.copy())
             h = h_plus
 
         return results
