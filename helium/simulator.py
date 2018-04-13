@@ -9,9 +9,9 @@ import cvxpy as cvx
 from collections import OrderedDict
 from typing import NamedTuple
 from .ret import BaseRet
-
+from .result import Result
 __all__ = [ "MarketSimulator" ]
-
+    
 class MarketSimulator():
     """Simulate the financial market for a given strategy"""
 
@@ -40,7 +40,8 @@ class MarketSimulator():
         v = sum(h)
         z = u / v
         h_plus = h + u
-        costs =[0.01, 0.05] #TO DO[ cost.estimate_unnormalised(t, h, u) for cost in self.costs ]
+
+        costs =[ cost.value_expr(t, h_plus / v, z, v, t) for cost in self.costs ]
         for cost in costs:
             assert(not pd.isnull(cost))
             assert(not np.isinf(cost))
@@ -53,8 +54,12 @@ class MarketSimulator():
          
     def run(self, h_init: pd.Series, policy, start_date, end_date, **kwargs):
         """Backtest a single policy"""
-
         h = h_init.copy()
+        results = Result(initial_portfolio=h_init.copy(),
+            policy=policy, cash_key=self.cash_ticker,
+            simulator=self)
+        
+
         dates = self.rets[start_date:end_date].index
         logging.info('Backtest started, from {start_date} to {end_date}'.format(start_date=dates[0], end_date=dates[-1]))
 
@@ -69,12 +74,17 @@ class MarketSimulator():
                 logging.warning('Solver failed on time %s. Default to no trades.' % t)
 
             logging.info('Propagating portfolio at time %s' % t)
+            start = time.time()
             h_plus, u  = self.step(t, h, u)
+            end = time.time()
             h = h_plus
             h_ts.append(h)
+            results.log_simulation(t=t, u=u, h_next=h,
+                                   risk_free_return=self.rets.loc[t, self.cash_ticker],
+                                   exec_time=end - start)
             
         h_ts = pd.concat(h_ts, axis=1)
-        return h_ts
+        return results
 
     def run_multi(self, h_init, policies, start_time, end_time, parallel, **kwargs):
         def _run(policy):

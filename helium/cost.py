@@ -1,5 +1,6 @@
 from abc import ABCMeta, abstractmethod
 import cvxpy as cvx
+import numpy as np
 
 __all__ = [ 'BasicRiskCost', 'FactorRiskCost', 'HoldingCost', 'TransactionCost', ]
 
@@ -39,11 +40,11 @@ class BaseCost(object):
     def _expr(self, t, w_plus, z, v, tau):
          raise NotImplementedError
 
-    def value_expr(self, w_plus, z, v, tau):
-        return self._value_expr(w_plus, z, v, tau)
+    def value_expr(self, t, w_plus, z, v, tau):
+        return self._value_expr(t, w_plus, z, v, tau)
 
     @abstractmethod
-    def _value_expr(self, w_plus, z, v, tau):
+    def _value_expr(self, t, w_plus, z, v, tau):
         raise NotImplementedError
 
 class BasicRiskCost(BaseCost):
@@ -84,8 +85,7 @@ class FactorRiskCost(BaseCost):
         
         for d in range(self.window_size, len(returns)):
             _pca_factor(returns.loc[d-window_size:d])
-
-                                                                                                                                                                                               
+                                                      
     def _expr(self, t, w_plus, z, v, tau):
         factor_risk = self.factor_risk[t]
         factor_loading = self.factor_loading[t]
@@ -117,8 +117,8 @@ class HoldingCost(BaseCost):
         """Estimate holding cost"""
         borrow_costs = self.borrow_costs.loc[t].values
         dividends = self.dividends.loc[t].values
-        cost = np.neg(w_plus).T * borrow_costs - w_plus.T * dividends
-        return self.gamma * cost
+        cost = np.negative(w_plus).T * borrow_costs - w_plus.T * dividends
+        return self.gamma * sum(cost)
     
 class TransactionCost(BaseCost):
     def __init__(self, gamma, half_spread, nonlin_coef, sigmas, nonlin_power, volumes, asym_coef, **kwargs):
@@ -153,7 +153,7 @@ class TransactionCost(BaseCost):
         cost_without_cash = cost[:-1]
         return self.gamma * cvx.sum_entries(cost_without_cash)
     
-    def _value_expr(self, w_plus, z, v, tau):
+    def _value_expr(self, t, w_plus, z, v, tau):
         z_abs = np.abs(z) 
         sigma = self.sigmas.loc[t].values
         volumes = self.volumes.loc[t].values

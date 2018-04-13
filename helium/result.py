@@ -65,10 +65,10 @@ class Result():
                 self.max_drawdown,
             'Turnover (%)':
                 self.turnover.mean() * 100 * self.PPY,
-            'Average policy time (sec)':
-                self.policy_time.mean(),
-            'Average simulator time (sec)':
-                self.simulation_time.mean(),
+            #'Average policy time (sec)':
+            #    self.policy_time.mean(),
+            #'Average simulator time (sec)':
+            #    self.simulation_time.mean(),
         })
 
         return (pd.Series(data=data).
@@ -86,19 +86,19 @@ class Result():
         self.log_data("policy_time", t, exec_time)
         # TODO mpo policy requires changes in the optimization_log methods
         #f not isinstance(self.policy, MultiPeriodOpt):
-        if True:
-            for cost in self.policy.costs:
-                self.log_data("policy_" + cost.__class__.__name__,
-                              t, cost.optimization_log(t))
+        #if True:
+        #    for cost in self.policy.costs:
+        #        self.log_data("policy_" + cost.__class__.__name__,
+        #                      t, cost.optimization_log(t))
 
     def log_simulation(self, t, u, h_next, risk_free_return, exec_time):
         self.log_data("simulation_time", t, exec_time)
         self.log_data("u", t, u)
         self.log_data("h_next", t, h_next)
         self.log_data("risk_free_returns", t, risk_free_return)
-        for cost in self.simulator.costs:
-            self.log_data("simulator_" + cost.__class__.__name__,
-                          t, cost.simulation_log(t))
+        #for cost in self.simulator.costs:
+        #    self.log_data("simulator_" + cost.__class__.__name__,
+        #                  t, cost.simulation_log(t))
 
     @property
     def h(self):
