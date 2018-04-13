@@ -11,7 +11,7 @@ class BaseRet(object):
         self.w_benchmark = kwargs.pop('w_benchmark', 0.)
         self.cash_ticker = kwargs.pop('cash_ticker', '_CASH')
 
-    def estimate(self, t, w_plus, z, v, tau):
+    def expr(self, t, w_plus, z, v, tau):
         """Returns the estimate at time t of alpha at time tau.
 
         Args:
@@ -23,25 +23,27 @@ class BaseRet(object):
         """
         if tau is None:
             tau = t
-        return self._estimate(t, w_plus - self.w_benchmark, z, v, tau)
+        return self._expr(t, w_plus - self.w_benchmark, z, v, tau)
 
     @abstractmethod
-    def _estimate(self, t, w_plus, z, v, tau):
+    def _expr(self, t, w_plus, z, v, tau):
          raise NotImplementedError
 
 class DefaultRet(BaseRet):
-    def __init__(self, ret, gamma_decay, **kwargs):
+    def __init__(self, rets, deltas, gamma_decay, **kwargs):
         super(DefaultRet, self).__init__(**kwargs)
-        self.ret = ret
-        self.delta = 0.
+        self.rets = rets
+        self.deltas = deltas
         self.gamma_decay = gamma_decay
 
-    def _estimate(self, t, w_plus, z, v, tau):
-        ret = self.ret.loc[t].values
-        estimate = cvx.sum_entries(w_plus.T * ret - w_plus.T * cvx.abs(self.delta))
+    def _expr(self, t, w_plus, z, v, tau):
+        rets = self.rets.loc[t].values
+        deltas = self.deltas.loc[t].values
+        estimate = w_plus.T * rets - w_plus.T * cvx.abs(deltas)
         if tau > t and self.gamma_decay is not None:
             estimate *= (tau - t)**(-self.gamma_decay)
         return estimate
+    
 class RetForecast(BaseRet):
     """A single alpha estimation.
 

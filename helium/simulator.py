@@ -7,6 +7,7 @@ import numpy as np
 import pandas as pd
 import cvxpy as cvx
 from collections import OrderedDict
+from typing import NamedTuple
 from .ret import BaseRet
 
 __all__ = [ "MarketSimulator" ]
@@ -49,37 +50,31 @@ class MarketSimulator():
 
         h_next = (1 + self.rets.loc[t]) * h_plus
         return h_next, u
-    
-    
-        h_plus = self.returns.loc[t].values * h_plus  + h_plus
-        return h_plus, u
          
-    def run(self, h_init, policy, start_date, end_date, **kwargs):
+    def run(self, h_init: pd.Series, policy, start_date, end_date, **kwargs):
         """Backtest a single policy"""
 
-        results = OrderedDict()
-        h = h_init
-        
+        h = h_init.copy()
         dates = self.rets[start_date:end_date].index
-        logging.info('Backtest started, from %s to %s' % (dates[0], dates[-1]))
+        logging.info('Backtest started, from {start_date} to {end_date}'.format(start_date=dates[0], end_date=dates[-1]))
 
-         
+        h_ts = [h.copy()]
         for t, ret in self.rets.iterrows():
             u = pd.Series()
-            logging.info('Getting trades at time %s' % time)
+            logging.info('Getting trades at date: {date}'.format(date=t))
             start = time.time()
             try:
-                u = policy.get_trades(h, t)
+                u = policy.get_trades(t, h)
             except cvx.SolverError:
                 logging.warning('Solver failed on time %s. Default to no trades.' % t)
 
             logging.info('Propagating portfolio at time %s' % t)
             h_plus, u  = self.step(t, h, u)
-            
-            results[t] = (h.copy(), u.copy(), h_plus.copy())
             h = h_plus
-
-        return results
+            h_ts.append(h)
+            
+        h_ts = pd.concat(h_ts, axis=1)
+        return h_ts
 
     def run_multi(self, h_init, policies, start_time, end_time, parallel, **kwargs):
         def _run(policy):

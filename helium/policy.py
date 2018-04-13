@@ -11,15 +11,17 @@ class BasePolicy(object):
     def __init__(self):
         pass
 
+    def get_trades(self, t, h: pd.Series):
+        v = sum(h)
+        return v * self.get_weights(t, h / v, v)
+ 
     @abstractmethod
-    def get_trades(self, holding, t):
-        return NotImplemented
+    def get_weights(self, t, w: pd.Series, v: float):
+        return NotImplementedError
 
 class Hold(BasePolicy):
     """Hold initial holding"""
-    
-    def get_trades(self, holding, t):
-        return pd.Series()
+    pass
 
 class MarketCapWeighted(BasePolicy):
     
@@ -28,42 +30,38 @@ class MarketCapWeighted(BasePolicy):
         self.time_steps = time_steps
         super(ProportionalTrade, self).__init__()
 
-    def get_trades(self, holding, t):
-        trades = self.w_benchmark.loc[t] - holding / sum(holding)
-        return sum(holding) * trades
+    def get_weights(self, t, w: pd.Series, v: float):
+        z = self.w_benchmark.loc[t] - w
+        return z
 
 class SinglePeriodOpt(BasePolicy):
     
-    def __init__(self, return_forecast, costs, constraints):
+    def __init__(self, rets, costs, constraints):
         super(SinglePeriodOpt, self).__init__()
   
-        self.return_forecast = return_forecast
+        self.rets = rets
         self.costs = costs
         self.constraints = constraints
 
-
-    def get_trades(self, holding, t):
-        v = sum(holding)
-        w = holding  / v
+    def get_weights(self, t, w: pd.Series, v: float):
         z = cvx.Variable(w.size)
         w_plus = w.values + z 
-        tau = t
-
-        ret = self.return_forecast.estimate(t, w_plus, z, v, tau)
+        
+        ### Equation 4.4 & 4.5
+        ret = self.rets.expr(t, w_plus, z, v, t)
         assert(ret.is_concave())
-
-        costs = [ cost.estimate(t, w_plus, z, v, tau) for cost in self.costs ] 
+        costs = [ cost.expr(t, w_plus, z, v, t) for cost in self.costs ] 
         for cost in costs:
             assert(cost.is_convex())
-        
-        constraints = [ con.expr(t, w_plus, z, v, tau) for con in self.constraints ] 
+        constraints = [ const.expr(t, w_plus, z, v, t) for const in self.constraints ] 
         constraints += [ cvx.sum_entries(z) == 0. ] 
         for constraint in constraints:
             assert(constraint.is_dcp())
 
+        ### Problem
         prob = cvx.Problem(cvx.Maximize(ret - sum(costs)), constraints)
         
-        trade = pd.Series()
+        z_res = pd.Series()
         try:
             prob.solve()
             if prob.status == cvx.UNBOUNDED:
@@ -71,19 +69,14 @@ class SinglePeriodOpt(BasePolicy):
             elif prob.status == cvx.INFEASIBLE:
                 logging.error('The problem is infeasible')
             else:
-                trades = pd.Series(index=holding.index, data =z.value.A1 * v)
+                z_res = pd.Series(index=w.index, data =z.value.A1)
         except cvx.SolverError:
             logging.error('The solver failed')
-        
-        return trades
+        return z_res
 
 def MultiPeriodOpt():
     def __init__(trading_times):
         self.trading_times = trading_times
-        pass
 
-    def get_trades(self, holding):
-        w = holding/holding.sum()
-        
-        prob_list = []
-        z_list = []
+    def get_weights(self, t, w: pd.Series, v: float):
+        raise NotImplementedError
