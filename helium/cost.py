@@ -42,8 +42,9 @@ class BaseCost(object):
     def value_expr(self, t, w_plus, z, v, tau):
         return self._value_expr(t, w_plus, z, v, tau)
 
+    @abstractmethod
     def value_expr2(self, t, h_plus, u):
-        return 0.
+        raise NotImplementedError
     
     @abstractmethod
     def _value_expr(self, t, w_plus, z, v, tau):
@@ -110,34 +111,36 @@ class HoldingCost(BaseCost):
 
     def _expr(self, t, w_plus, z, v, tau):
         """Estimate holding cost"""
-        #print('-------')
+        
         #borrow_costs = self.borrow_costs.loc[t].values
         #dividends = self.dividends.loc[t].values
-        #cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
-        #return self.gamma * cost
+        
+        #cost = cvx.mul_elemwise(borrow_costs, cvx.neg(w_plus)) - cvx.mul_elemwise(dividends, w_plus)
+        #ones = np.ones_like(dividends)
+        #ones[-1] = 0.
+        #cost  = cvx.mul_elemwise(ones, cost)
+        #return self.gamma * cvx.sum_entries(cost)
+    
         w_plus = w_plus[:-1]
-        borrow_costs = 0.0001#self.borrow_costs.loc[t].values
-        print(borrow_costs)
-        dividends = 0.# self.dividends.loc[t].values
-        print(dividends)
-        cost = cvx.mul_elemwise(
-                borrow_costs, cvx.neg(w_plus))
-        cost -= cvx.mul_elemwise(
-                dividends, w_plus)
-
-        #cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
-
-        #print(cost)
-        #print('-------')
-        return self.gamma * sum(cost)
+        borrow_costs = self.borrow_costs.loc[t].values[:-1]
+        dividends = self.dividends.loc[t].values[:-1]
+        cost = cvx.mul_elemwise(borrow_costs, cvx.neg(w_plus)) - cvx.mul_elemwise(dividends, w_plus)
+        return self.gamma * cvx.sum_entries(cost)
     
     def _value_expr(self, t, w_plus, z, v, tau):
         """Estimate holding cost"""
         borrow_costs = self.borrow_costs.loc[t].values
         dividends = self.dividends.loc[t].values
         cost = np.negative(w_plus).T * borrow_costs - w_plus.T * dividends
-        return self.gamma * sum(cost)
+        return self.gamma * cost
     
+    def value_expr2(self, t, h_plus, u):
+        h_plus = h_plus[:-1]
+        borrow_costs = self.borrow_costs.loc[t].values[:-1]
+        dividends = self.dividends.loc[t].values[:-1]
+        last_cost = -np.minimum(0, h_plus) * borrow_costs - h_plus * dividends
+        return sum(last_cost)
+
 class TransactionCost(BaseCost):
     def __init__(self, gamma, half_spread, nonlin_coef, sigmas, nonlin_power, volumes, asym_coef, **kwargs):
         """
@@ -163,14 +166,12 @@ class TransactionCost(BaseCost):
     def _expr(self, t, w_plus, z, v, tau):
         """Estimate transaction cost"""
         #TO DO make cash component zero
-        z_abs = cvx.abs(z) 
+        z_abs = cvx.abs(z)[:-1] 
         sigma = self.sigmas.loc[t].values
         volumes = self.volumes.loc[t].values
-        cost =  self.half_spread * z_abs + \
-            self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1) + \
-            self.asym_coef * z
-        cost_without_cash = cost[:-1]
-        return self.gamma * cvx.sum_entries(cost_without_cash)
+        cost =  cvx.mul_elemwise(self.half_spread, z_abs) #  + self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1) # +  self.asym_coef * z
+        #cost_without_cash = cost[:-1]
+        return self.gamma * cvx.sum_entries(cost)
     
     def _value_expr(self, t, w_plus, z, v, tau):
         z_abs = np.abs(z) 
