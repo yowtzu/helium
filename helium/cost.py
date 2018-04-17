@@ -51,7 +51,7 @@ class BaseCost(object):
 
 class BasicRiskCost(BaseCost):
     def __init__(self, gamma, sigmas, **kwargs):
-        super(BasicRiskCost, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.gamma = gamma
         self.sigmas = sigmas
 
@@ -62,7 +62,7 @@ class BasicRiskCost(BaseCost):
 class FactorRiskCost(BaseCost):
     '''PCA Based Factor risk model'''    
     def __init__(self, gamma, returns, window_size, n_factors, **kwargs):
-        super(FactorRiskCost, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.gamma = gamma
         self._construct_factor_model(returns)
         self.window_size = window_size
@@ -103,7 +103,7 @@ class HoldingCost(BaseCost):
                 borrow_costs = pd.DataFrame
                 dividends = pd.DataFrame
         """
-        super(HoldingCost, self).__init__(**kwargs)
+        super().__init__(**kwargs)
         self.gamma = gamma
         self.borrow_costs = borrow_costs
         self.dividends = dividends
@@ -111,10 +111,10 @@ class HoldingCost(BaseCost):
     def _expr(self, t, w_plus, z, v, tau):
         """Estimate holding cost"""
         #print('-------')
--       #borrow_costs = self.borrow_costs.loc[t].values
--       #dividends = self.dividends.loc[t].values
--       #cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
--       #return self.gamma * cost
+        #borrow_costs = self.borrow_costs.loc[t].values
+        #dividends = self.dividends.loc[t].values
+        #cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
+        #return self.gamma * cost
         w_plus = w_plus[:-1]
         borrow_costs = 0.0001#self.borrow_costs.loc[t].values
         print(borrow_costs)
@@ -150,7 +150,8 @@ class TransactionCost(BaseCost):
                 volumes = ADV in pd.DataFrame
                 asym_coef = float
         """
-        super(TransactionCost, self).__init__(**kwargs)
+        
+        super().__init__(**kwargs)
         self.gamma = gamma
         self.half_spread = half_spread
         self.nonlin_coef = nonlin_coef

@@ -28,7 +28,7 @@ class BaseConstraint(object):
 
 class TradeLimitConstraint(BaseConstraint):
     def __init__(self, **kwargs):
-        super(TradeLimitConstraint, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def _expr(self, t, w_plus, z, v, tau):
         z = z.copy()
@@ -39,7 +39,7 @@ class LongOnlyConstraint(BaseConstraint):
     """Constraint on Long only, i.e., weights >=0"""
 
     def __init__(self, **kwargs):
-        super(LongOnly, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def _expr(self, t, w_plus, z, v, tau):
         return w_plus >= 0
@@ -49,7 +49,7 @@ class LeverageLimitConstraint(BaseConstraint):
 
     def __init__(self, limit, **kwargs):
         self.limit = limit
-        super(LeverageLimitConstraint, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def _expr(self, t, w_plus, z, v, tau):
         return cvx.norm(w_plus, 1) <= self.limit
@@ -57,7 +57,7 @@ class LeverageLimitConstraint(BaseConstraint):
 class MinCashBalanceConstraint(BaseConstraint):
     def __init__(self, threshold, **kwargs):
         self.threshold = threshold 
-        super(LongCash, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def _expr(self, t, w_plus, z, v, tau):
         return w_plus['_CASH'] >= self.threshold
@@ -72,7 +72,7 @@ class MaxTradeConstraint(BaseConstraint):
         """
         self.dollar_volume = dollar_volume
         self.max_fraction = max_fraction
-        super(MaxTrade, self).__init__(**kwargs)
+        super().__init__(**kwargs)
 
     def _expr(self, t, w_post, z, v, tau):
         z = z.copy()

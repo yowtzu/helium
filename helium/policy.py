@@ -37,7 +37,7 @@ class MarketCapWeighted(BasePolicy):
 class SinglePeriodOpt(BasePolicy):
     
     def __init__(self, rets, costs, constraints):
-        super(SinglePeriodOpt, self).__init__()
+        super().__init__()
   
         self.rets = rets
         self.costs = costs
@@ -55,7 +55,7 @@ class SinglePeriodOpt(BasePolicy):
         for cost in costs:
             assert(cost.is_convex())
         constraints = [ const.expr(t, w_plus, z, v, t) for const in self.constraints ] 
-        #constraints += [ cvx.sum_entries(z) == 0. ] 
+        constraints += [ cvx.sum_entries(z) == 0. ] 
         for constraint in constraints:
             assert(constraint.is_dcp())
 
