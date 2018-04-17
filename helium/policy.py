@@ -13,7 +13,7 @@ class BasePolicy(object):
 
     def get_trades(self, t, h: pd.Series):
         v = sum(h)
-        return v * self.get_weights(t, h / v, v)
+        return v * self.get_weights(t, h, None)
  
     @abstractmethod
     def get_weights(self, t, w: pd.Series, v: float):
@@ -43,10 +43,11 @@ class SinglePeriodOpt(BasePolicy):
         self.costs = costs
         self.constraints = constraints
 
-    def get_weights(self, t, w: pd.Series, v: float):
+    def get_weights(self, t, h: pd.Series, v: float):
+        value = sum(h)
+        w = h / value
         z = cvx.Variable(w.size)
         w_plus = w.values + z 
-        
         ### Equation 4.4 & 4.5
         ret = self.rets.expr(t, w_plus, z, v, t)
         assert(ret.is_concave())
@@ -54,14 +55,19 @@ class SinglePeriodOpt(BasePolicy):
         for cost in costs:
             assert(cost.is_convex())
         constraints = [ const.expr(t, w_plus, z, v, t) for const in self.constraints ] 
-        constraints += [ cvx.sum_entries(z) == 0. ] 
+        #constraints += [ cvx.sum_entries(z) == 0. ] 
         for constraint in constraints:
             assert(constraint.is_dcp())
 
         ### Problem
-        prob = cvx.Problem(cvx.Maximize(ret - sum(costs)), constraints)
+        print('******')
+        print("QQQ:", h)
+        obj = ret - sum(costs)
+        print("Obj: {}".format(obj))
+        print("constraints: {}".format(constraints))
+        prob = cvx.Problem(cvx.Maximize(obj), constraints)
         
-        z_res = pd.Series()
+        z_res = pd.Series(index=w.index, data = 0.0)
         try:
             prob.solve()
             if prob.status == cvx.UNBOUNDED:
@@ -72,6 +78,8 @@ class SinglePeriodOpt(BasePolicy):
                 z_res = pd.Series(index=w.index, data =z.value.A1)
         except cvx.SolverError:
             logging.error('The solver failed')
+        print(z_res)
+        print('******')
         return z_res
 
 def MultiPeriodOpt():

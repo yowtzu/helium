@@ -39,19 +39,40 @@ class MarketSimulator():
         assert(h.index.equals(u.index))
         v = sum(h)
         z = u / v
+        print('h = {}'.format(h))
+        print('u = {}'.format(u))
         h_plus = h + u
-
-        costs =[ cost.value_expr(t, h_plus / v, z, v, t) for cost in self.costs ]
+        costs = [ cost.value_expr2(t, h_plus, u) for cost in self.costs ]
+        
+        #costs = [ v * cost.value_expr(t, h_plus / v, z, v, t) for cost in self.costs ]
         for cost in costs:
             assert(not pd.isnull(cost))
             assert(not np.isinf(cost))
         
-        u[self.cash_ticker] = -(sum(u[u.index != self.cash_ticker]) - sum(costs))
-        h_plus[self.cash_ticker] = h[self.cash_ticker] + u[self.cash_ticker]
+        u[self.cash_ticker] = -sum(u[u.index != self.cash_ticker]) - sum(costs)
 
-        h_next = (1 + self.rets.loc[t]) * h_plus
+        #print("CASH:".format(u[self.cash_ticker]))
+        h_plus[self.cash_ticker] = h[self.cash_ticker] + u[self.cash_ticker]
+        #print(h_plus[self.cash_ticker])
+        h_next = self.rets.loc[t] * h_plus + h_plus
+        #h_next = (1 + self.rets.loc[t]) * h_plus
         return h_next, u
-         
+
+    
+        u[self.cash_key] = -sum(u[u.index != self.cash_key]) - sum(costs)
+        #print("CASH:".format(u[self.cash_key]))
+        hplus[self.cash_key] = h[self.cash_key] + u[self.cash_key]
+  
+        assert (hplus.index.sort_values().equals(
+            self.market_returns.columns.sort_values()))
+    
+        h_next = self.market_returns.loc[t] * hplus + hplus
+
+        assert (not h_next.isnull().values.any())
+        assert (not u.isnull().values.any())
+        return h_next, u
+
+    
     def run(self, h_init: pd.Series, policy, start_date, end_date, **kwargs):
         """Backtest a single policy"""
         h = h_init.copy()
@@ -60,7 +81,8 @@ class MarketSimulator():
             simulator=self)
         
 
-        dates = self.rets[start_date:end_date].index
+        self.rets = self.rets[start_date:end_date]
+        dates = self.rets.index
         logging.info('Backtest started, from {start_date} to {end_date}'.format(start_date=dates[0], end_date=dates[-1]))
 
         h_ts = [h.copy()]
@@ -76,6 +98,8 @@ class MarketSimulator():
             logging.info('Propagating portfolio at time %s' % t)
             start = time.time()
             h_plus, u  = self.step(t, h, u)
+            print("h_plus: {}".format(h_plus))         
+            print("u: {}".format(u))
             end = time.time()
             h = h_plus
             h_ts.append(h)

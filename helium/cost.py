@@ -33,7 +33,6 @@ class BaseCost(object):
             v: pre-trade portfolio dollar value
             tau: prediction time
         """
-        
         return self._expr(t, w_plus, z, v, tau)
 
     @abstractmethod
@@ -43,6 +42,9 @@ class BaseCost(object):
     def value_expr(self, t, w_plus, z, v, tau):
         return self._value_expr(t, w_plus, z, v, tau)
 
+    def value_expr2(self, t, h_plus, u):
+        return 0.
+    
     @abstractmethod
     def _value_expr(self, t, w_plus, z, v, tau):
         raise NotImplementedError
@@ -108,10 +110,26 @@ class HoldingCost(BaseCost):
 
     def _expr(self, t, w_plus, z, v, tau):
         """Estimate holding cost"""
-        borrow_costs = self.borrow_costs.loc[t].values
-        dividends = self.dividends.loc[t].values
-        cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
-        return self.gamma * cost
+        #print('-------')
+-       #borrow_costs = self.borrow_costs.loc[t].values
+-       #dividends = self.dividends.loc[t].values
+-       #cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
+-       #return self.gamma * cost
+        w_plus = w_plus[:-1]
+        borrow_costs = 0.0001#self.borrow_costs.loc[t].values
+        print(borrow_costs)
+        dividends = 0.# self.dividends.loc[t].values
+        print(dividends)
+        cost = cvx.mul_elemwise(
+                borrow_costs, cvx.neg(w_plus))
+        cost -= cvx.mul_elemwise(
+                dividends, w_plus)
+
+        #cost = cvx.neg(w_plus).T * borrow_costs - w_plus.T * dividends
+
+        #print(cost)
+        #print('-------')
+        return self.gamma * sum(cost)
     
     def _value_expr(self, t, w_plus, z, v, tau):
         """Estimate holding cost"""
