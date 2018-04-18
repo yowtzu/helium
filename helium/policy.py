@@ -44,8 +44,8 @@ class SinglePeriodOpt(BasePolicy):
         self.constraints = constraints
 
     def get_weights(self, t, h: pd.Series, v: float):
-        value = sum(h)
-        w = h / value
+        v = sum(h)
+        w = h / v
         z = cvx.Variable(w.size)
         w_plus = w.values + z 
         ### Equation 4.4 & 4.5

@@ -166,13 +166,14 @@ class TransactionCost(BaseCost):
     def _expr(self, t, w_plus, z, v, tau):
         """Estimate transaction cost"""
         #TO DO make cash component zero
-        z_abs = cvx.abs(z)[:-1] 
-        sigma = self.sigmas.loc[t].values
-        volumes = self.volumes.loc[t].values
-        cost =  cvx.mul_elemwise(self.half_spread, z_abs) #  + self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1) # +  self.asym_coef * z
-        #cost_without_cash = cost[:-1]
+        z = z[:-1]
+        z_abs = cvx.abs(z)
+        sigma = self.sigmas.loc[t].values[:-1]
+        volumes = self.volumes.loc[t].values[:-1]
+        cost = cvx.mul_elemwise(self.half_spread, z_abs)  + self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1)  +  self.asym_coef * z
+
         return self.gamma * cvx.sum_entries(cost)
-    
+   
     def _value_expr(self, t, w_plus, z, v, tau):
         z_abs = np.abs(z) 
         sigma = self.sigmas.loc[t].values
@@ -183,4 +184,13 @@ class TransactionCost(BaseCost):
         cost_without_cash = cost[:-1]
         return self.gamma * sum(cost_without_cash)
     
-    
+    def value_expr2(self, t, h_plus, u):
+        u = u[:-1]
+        u_abs = np.abs(u)
+        sigma = self.sigmas.loc[t].values[:-1]
+        volumes = self.volumes.loc[t].values[:-1]
+        cost =  self.half_spread * u_abs + \
+            self.nonlin_coef * sigma * u_abs**self.nonlin_power * (volumes)**(self.nonlin_power-1) + \
+            self.asym_coef * u
+        return self.gamma * sum(cost)
+   
