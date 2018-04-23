@@ -19,10 +19,6 @@ class BasePolicy(object):
     def get_weights(self, t, w: pd.Series, v: float):
         return NotImplementedError
 
-class Hold(BasePolicy):
-    """Hold initial holding"""
-    pass
-
 class MarketCapWeighted(BasePolicy):
     
     def __init__(self, w_benchmark, time_steps):
@@ -34,6 +30,45 @@ class MarketCapWeighted(BasePolicy):
         z = self.w_benchmark.loc[t] - w
         return z
 
+
+class Hold(BasePolicy):
+    """Hold initial portfolio.
+    """
+    def get_weights(self, t, w: pd.Series, v: float):
+        return pd.Series(index=self.w.index, data = 0.0)
+
+    
+class PeriodicRebalance(BasePolicy):
+    """Track a target portfolio, rebalancing at given times.
+    """
+
+    def __init__(self, target, period, **kwargs):
+        """
+        Args:
+            target: target weights, n+1 vector
+            period: supported options are "day", "week", "month", "quarter",
+                "year".
+                rebalance on the first day of each new period
+        """
+        self.target = target
+        self.period = period
+        super(PeriodicRebalance, self).__init__()
+
+    def is_start_period(self, t):
+        if hasattr(self, 'last_t'):
+            result = getattr(t, self.period) != getattr(self.last_t, self.period)
+        else:
+            result = True
+        self.last_t = t
+        return result
+
+    def get_weights(self, t, w: pd.Series, v: float):
+        if self.is_start_period(t):
+            return self.target - w
+        else:
+            return pd.Series(index=w.index, data = 0.0)
+
+        
 class SinglePeriodOpt(BasePolicy):
     
     def __init__(self, rets, costs, constraints):

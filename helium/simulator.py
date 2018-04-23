@@ -39,12 +39,12 @@ class MarketSimulator():
         assert(h.index.equals(u.index))
         v = sum(h)
         z = u / v
-        print('h = {}'.format(h))
-        print('u = {}'.format(u))
+        #print('h = {}'.format(h))
+        #print('u = {}'.format(u))
         h_plus = h + u
-        costs = [ cost.value_expr2(t, h_plus, u) for cost in self.costs ]
-        
         #costs = [ v * cost.value_expr(t, h_plus / v, z, v, t) for cost in self.costs ]
+        costs = [ cost.value_expr2(t, h_plus, u) for cost in self.costs ]
+        print(costs)
         for cost in costs:
             assert(not pd.isnull(cost))
             assert(not np.isinf(cost))
@@ -98,8 +98,8 @@ class MarketSimulator():
             logging.info('Propagating portfolio at time %s' % t)
             start = time.time()
             h_plus, u  = self.step(t, h, u)
-            print("h_plus: {}".format(h_plus))         
-            print("u: {}".format(u))
+            #print("h_plus: {}".format(h_plus))         
+            #print("u: {}".format(u))
             end = time.time()
             h = h_plus
             h_ts.append(h)
@@ -110,9 +110,9 @@ class MarketSimulator():
         h_ts = pd.concat(h_ts, axis=1)
         return results
 
-    def run_multi(self, h_init, policies, start_time, end_time, parallel, **kwargs):
+    def run_multi(self, h_init, policies, start_date, end_date, parallel, **kwargs):
         def _run(policy):
-            return self.run(h_init, policy, start_time, end_time)
+            return self.run(h_init, policy, start_date, end_date, **kwargs)
 
         if parallel:
             processes = kwargs.pop('processor', multiprocess.cpu_count())
