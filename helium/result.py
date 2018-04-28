@@ -96,9 +96,9 @@ class Result():
         self.log_data("u", t, u)
         self.log_data("h_next", t, h_next)
         self.log_data("risk_free_returns", t, risk_free_return)
-        #for cost in self.simulator.costs:
-        #    self.log_data("simulator_" + cost.__class__.__name__,
-        #                  t, cost.simulation_log(t))
+        for cost in self.simulator.costs:
+            self.log_data("simulator_" + cost.__class__.__name__,
+                          t, cost.simulation_log(t))
 
     @property
     def h(self):

@@ -50,6 +50,9 @@ class BaseCost(object):
     def _value_expr(self, t, w_plus, z, v, tau):
         raise NotImplementedError
 
+    def simulation_log(self, t):
+        return self.last_cost
+
 class BasicRiskCost(BaseCost):
     def __init__(self, gamma, sigmas, **kwargs):
         super().__init__(**kwargs)
@@ -138,8 +141,8 @@ class HoldingCost(BaseCost):
         h_plus = h_plus[:-1]
         borrow_costs = self.borrow_costs.loc[t].values[:-1]
         dividends = self.dividends.loc[t].values[:-1]
-        last_cost = -np.minimum(0, h_plus) * borrow_costs - h_plus * dividends
-        return sum(last_cost)
+        self.last_cost = self.gamma * sum(-np.minimum(0, h_plus) * borrow_costs - h_plus * dividends)
+        return self.last_cost
 
 class TransactionCost(BaseCost):
     def __init__(self, gamma, half_spread, nonlin_coef, sigmas, nonlin_power, volumes, asym_coef, **kwargs):
@@ -163,16 +166,16 @@ class TransactionCost(BaseCost):
         self.volumes = volumes
         self.asym_coef = asym_coef
 
-    def _expr(self, t, w_plus, z, v, tau):
-        """Estimate transaction cost"""
-        #TO DO make cash component zero
-        z = z[:-1]
-        z_abs = cvx.abs(z)
-        sigma = self.sigmas.loc[t].values[:-1]
-        volumes = self.volumes.loc[t].values[:-1]
-        cost = cvx.mul_elemwise(self.half_spread, z_abs)  + self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1)  +  self.asym_coef * z
+#     def _expr(self, t, w_plus, z, v, tau):
+#         """Estimate transaction cost"""
+#         #TO DO make cash component zero
+#         z = z[:-1]
+#         z_abs = cvx.abs(z)
+#         sigma = self.sigmas.loc[t].values[:-1]
+#         volumes = self.volumes.loc[t].values[:-1]
+#         cost = cvx.mul_elemwise(self.half_spread, z_abs)  + self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1)  +  self.asym_coef * z
 
-        return self.gamma * cvx.sum_entries(cost)
+#         return self.gamma * cvx.sum_entries(cost)
    
     def _value_expr(self, t, w_plus, z, v, tau):
         z_abs = np.abs(z) 
@@ -190,7 +193,11 @@ class TransactionCost(BaseCost):
         sigma = self.sigmas.loc[t].values[:-1]
         volumes = self.volumes.loc[t].values[:-1]
         cost =  self.half_spread * u_abs + \
-            self.nonlin_coef * sigma * u_abs**self.nonlin_power * (volumes)**(self.nonlin_power-1) + \
+            self.nonlin_coef * sigma * u_abs**self.nonlin_power / (volumes)**(self.nonlin_power-1) + \
             self.asym_coef * u
-        return self.gamma * sum(cost)
+#         print("volume:{}".format(volumes))
+#         print("u:{}".format(u))
+#         print("cost:{}".format(cost))
+        self.last_cost = self.gamma * sum(cost)
+        return self.last_cost
    
