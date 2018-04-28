@@ -35,7 +35,7 @@ class Hold(BasePolicy):
     """Hold initial portfolio.
     """
     def get_weights(self, t, w: pd.Series, v: float):
-        return pd.Series(index=self.w.index, data = 0.0)
+        return pd.Series(index=w.index, data = 0.0)
 
     
 class PeriodicRebalance(BasePolicy):
@@ -61,12 +61,19 @@ class PeriodicRebalance(BasePolicy):
             result = True
         self.last_t = t
         return result
+    
+    def _rebalance(self, portfolio):
+        return sum(portfolio) * self.target - portfolio
 
-    def get_weights(self, t, w: pd.Series, v: float):
-        if self.is_start_period(t):
-            return self.target - w
-        else:
-            return pd.Series(index=w.index, data = 0.0)
+    def get_trades(self, t, h):
+        return self._rebalance(h) if self.is_start_period(t) else \
+            pd.Series(index=h.index, data = 0.0)
+        
+    #def get_weights(self, t, w: pd.Series, v: float):
+    #    if self.is_start_period(t):
+    #        return self.target - w
+    #    else:
+    #        return pd.Series(index=w.index, data = 0.0)
 
         
 class SinglePeriodOpt(BasePolicy):
@@ -95,8 +102,7 @@ class SinglePeriodOpt(BasePolicy):
             assert(constraint.is_dcp())
 
         ### Problem
-        print('******')
-        print("QQQ:", h)
+        print('******\nh:{}'.format(h))
         obj = ret - sum(costs)
         print("Obj: {}".format(obj))
         print("constraints: {}".format(constraints))
