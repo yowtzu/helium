@@ -38,13 +38,24 @@ class MarketSimulator():
         """
         assert(h.index.equals(u.index))
         v = sum(h)
+        
+        
+        if self.volumes is not None:
+            # don't trade if volume is null
+            null_trades = self.volumes.columns[self.volumes.loc[t] == 0]
+            if len(null_trades):
+                logging.info('No trade condition for stocks %s on %s' %
+                             (null_trades, t))
+                u.loc[null_trades] = 0.
+                
         z = u / v
         #print('h = {}'.format(h))
         #print('u = {}'.format(u))
         h_plus = h + u
         #costs = [ v * cost.value_expr(t, h_plus / v, z, v, t) for cost in self.costs ]
         costs = [ cost.value_expr2(t, h_plus, u) for cost in self.costs ]
-        print(costs)
+        #print(t, h_plus, u)
+        #print(costs)
         for cost in costs:
             assert(not pd.isnull(cost))
             assert(not np.isinf(cost))
