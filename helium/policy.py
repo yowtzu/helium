@@ -104,8 +104,8 @@ class SinglePeriodOpt(BasePolicy):
         ### Problem
         print('******\nh:{}'.format(h))
         obj = ret - sum(costs)
-        print("Obj: {}".format(obj))
-        print("constraints: {}".format(constraints))
+        #print("Obj: {}".format(obj))
+        #print("constraints: {}".format(constraints))
         prob = cvx.Problem(cvx.Maximize(obj), constraints)
         
         z_res = pd.Series(index=w.index, data = 0.0)

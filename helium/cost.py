@@ -173,9 +173,10 @@ class TransactionCost(BaseCost):
         z_abs = cvx.abs(z)
         sigma = self.sigmas.loc[t].values[:-1]
         volumes = self.volumes.loc[t].values[:-1]
-        cost = cvx.mul_elemwise(self.half_spread, z_abs)  + \
-            self.nonlin_coef * sigma * z_abs**self.nonlin_power * (v / volumes)**(self.nonlin_power-1)  + \
-            self.asym_coef * z
+        cost = cvx.mul_elemwise(self.half_spread, z_abs)
+        second_term = (self.nonlin_coef * sigma) * (v / volumes)**(self.nonlin_power-1)
+        cost += cvx.mul_elemwise(second_term, cvx.abs(z)**self.nonlin_power)
+        cost += self.asym_coef * z
 
         return self.gamma * cvx.sum_entries(cost)
    
