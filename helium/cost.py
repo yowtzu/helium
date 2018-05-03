@@ -173,9 +173,19 @@ class TransactionCost(BaseCost):
         z_abs = cvx.abs(z)
         sigma = self.sigmas.loc[t].values[:-1]
         volumes = self.volumes.loc[t].values[:-1]
+        
+        # this is a n-1 vector
         cost = cvx.mul_elemwise(self.half_spread, z_abs)
-        second_term = (self.nonlin_coef * sigma) * (v / volumes)**(self.nonlin_power-1)
+        
+        # v is atom
+        # volumes is n-1 vector
+        # this stage, it is numpy term, hence auto element wise multiplication
+        second_term = (self.nonlin_coef * sigma) * (v / volumes)**(self.nonlin_power-1)      
+        
+        # now it is cvx element wise multiplication
         cost += cvx.mul_elemwise(second_term, cvx.abs(z)**self.nonlin_power)
+
+        # this is a n-1 vector
         cost += self.asym_coef * z
 
         return self.gamma * cvx.sum_entries(cost)

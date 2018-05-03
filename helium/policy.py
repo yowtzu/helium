@@ -102,7 +102,7 @@ class SinglePeriodOpt(BasePolicy):
             assert(constraint.is_dcp())
 
         ### Problem
-        print('******\nh:{}'.format(h))
+        #print('******\nh:{}'.format(h))
         obj = ret - sum(costs)
         #print("Obj: {}".format(obj))
         #print("constraints: {}".format(constraints))
@@ -119,8 +119,8 @@ class SinglePeriodOpt(BasePolicy):
                 z_res = pd.Series(index=w.index, data =z.value.A1)
         except cvx.SolverError:
             logging.error('The solver failed')
-        print(z_res)
-        print('******')
+        #print(z_res)
+        #print('******')
         return z_res
 
 def MultiPeriodOpt():
