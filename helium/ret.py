@@ -23,7 +23,7 @@ class BaseRet(object):
         """
         if tau is None:
             tau = t
-        #TO DO to put back benchmakr
+        #TO DO to put back benchmark
         return self._expr(t, w_plus, z, v, tau)
 
     @abstractmethod
@@ -31,7 +31,7 @@ class BaseRet(object):
          raise NotImplementedError
 
 class DefaultRet(BaseRet):
-    def __init__(self, rets, deltas, gamma_decay, **kwargs):
+    def __init__(self, rets, deltas, gamma_decay, step=1, **kwargs):
         super(DefaultRet, self).__init__(**kwargs)
         self.rets = rets
         self.deltas = deltas
@@ -42,13 +42,13 @@ class DefaultRet(BaseRet):
         deltas = self.deltas.loc[t].values
         #TO DO
         alpha = cvx.mul_elemwise(rets, w_plus)
-        #alpha -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
-        return cvx.sum_entries(alpha)
+        alpha -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
+        estimate = cvx.sum_entries(alpha)
         #estimate = w_plus.T * rets - cvx.abs(w_plus.T) * deltas
-        #if tau > t and self.gamma_decay is not None:
-        #    estimate *= (tau - t)**(-self.gamma_decay)
-        #return estimate
-    
+        if tau > t and self.gamma_decay is not None:
+            estimate *= (tau - t).days**(-self.gamma_decay)
+        return estimate
+
 class RetForecast(BaseRet):
     """A single alpha estimation.
 
