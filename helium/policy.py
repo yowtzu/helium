@@ -96,7 +96,7 @@ class SinglePeriodOpt(BasePolicy):
         costs = [ cost.expr(t, w_plus, z, v, 0) for cost in self.costs ] 
         for cost in costs:
             assert(cost.is_convex())
-        constraints = [ cvx.sum_entries(z) == 0. ] 
+        constraints = [ cvx.sum_entries(z) == 0 ] 
         constraints += [ const.expr(t, w_plus, z, v, 0) for const in self.constraints ] 
         for constraint in constraints:
             assert(constraint.is_dcp())
@@ -143,10 +143,11 @@ class MultiPeriodOpt(BasePolicy):
         for step in range(self.steps):
             z = cvx.Variable(*w.size)
             w_plus = w + z 
+            #print(w_plus)
             ### Equation 4.4 & 4.5
             ret = self.rets.expr(t, w_plus, z, v, step)            
             costs = [ cost.expr(t, w_plus, z, v, step) for cost in self.costs ] 
-            constraints = [ cvx.sum_entries(z) == 0. ] 
+            constraints = [ cvx.sum_entries(z) == 0 ] 
             constraints += [ const.expr(t, w_plus, z, v, step) for const in self.constraints ] 
   
             obj = ret - sum(costs)
@@ -157,9 +158,12 @@ class MultiPeriodOpt(BasePolicy):
 
         # TO DO: add terminal constraint       
         
-        z_res = pd.Series(index=h.index, data = 0.0)
+        z_res = pd.Series(index=h.index, data = 0.)
         try:
-            sum(probs).solve()
+            bla = sum(probs)
+            #print(t)
+            #print(bla)
+            bla.solve()
             if prob.status == cvx.UNBOUNDED:
                 logging.error('The problem is unbounded')
             elif prob.status == cvx.INFEASIBLE:

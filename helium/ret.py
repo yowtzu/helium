@@ -46,11 +46,14 @@ class DefaultRet(BaseRet):
     def _expr(self, t, w_plus, z, v, theta):
         rets = self.rets[t].iloc[theta].values
         deltas = self.deltas[t].iloc[theta].values
-        #rets = self.rets.loc[t].values
-        #deltas = self.deltas.loc[t].values
-        alpha = cvx.mul_elemwise(rets, w_plus)
-        alpha -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
-        estimate = cvx.sum_entries(alpha)
+        #####
+        #alpha = cvx.mul_elemwise(rets, w_plus)
+        #alpha -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
+        #estimate = cvx.sum_entries(alpha)
+        ######
+        estimate = rets.T * w_plus
+        #####
+        
         #estimate = w_plus.T * rets - cvx.abs(w_plus.T) * deltas
         if theta > 0  and self.gamma_decay is not None:
             estimate *= theta**(-self.gamma_decay)
