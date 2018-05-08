@@ -16,7 +16,7 @@ class MarketSimulator():
     """Simulate the financial market for a given strategy"""
 
     def __init__(self, rets, volumes, costs, **kwargs):
-        log_level = kwargs.pop('log_level', logging.INFO)
+        log_level = kwargs.pop('log_level', logging.WARN)
         logging.basicConfig(level=log_level)
         
         self.rets = rets

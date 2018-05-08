@@ -91,13 +91,13 @@ class SinglePeriodOpt(BasePolicy):
         z = cvx.Variable(w.size)
         w_plus = w.values + z 
         ### Equation 4.4 & 4.5
-        ret = self.rets.expr(t, w_plus, z, v, t)
+        ret = self.rets.expr(t, w_plus, z, v, 0)
         assert(ret.is_concave())
-        costs = [ cost.expr(t, w_plus, z, v, t) for cost in self.costs ] 
+        costs = [ cost.expr(t, w_plus, z, v, 0) for cost in self.costs ] 
         for cost in costs:
             assert(cost.is_convex())
-        constraints = [ const.expr(t, w_plus, z, v, t) for const in self.constraints ] 
-        constraints += [ cvx.sum_entries(z) == 0. ] 
+        constraints = [ cvx.sum_entries(z) == 0. ] 
+        constraints += [ const.expr(t, w_plus, z, v, 0) for const in self.constraints ] 
         for constraint in constraints:
             assert(constraint.is_dcp())
 
@@ -123,9 +123,51 @@ class SinglePeriodOpt(BasePolicy):
         #print('******')
         return z_res
 
-def MultiPeriodOpt():
-    def __init__(trading_times):
-        self.trading_times = trading_times
+class MultiPeriodOpt(BasePolicy):
+    def __init__(self, rets, costs, constraints, steps = 2):
+        super().__init__()
+  
+        self.rets = rets
+        self.costs = costs
+        self.constraints = constraints
+        self.steps = steps
 
-    def get_weights(self, t, w: pd.Series, v: float):
-        raise NotImplementedError
+    def get_weights(self, t, h: pd.Series, v: float):
+        v = sum(h)
+        assert( v > 0.)
+        w = cvx.Constant(h.values / v)
+        ### Equation 4.4 & 4.5
+        
+        probs, zs = [], []
+        
+        for step in range(self.steps):
+            z = cvx.Variable(*w.size)
+            w_plus = w + z 
+            ### Equation 4.4 & 4.5
+            ret = self.rets.expr(t, w_plus, z, v, step)            
+            costs = [ cost.expr(t, w_plus, z, v, step) for cost in self.costs ] 
+            constraints = [ cvx.sum_entries(z) == 0. ] 
+            constraints += [ const.expr(t, w_plus, z, v, step) for const in self.constraints ] 
+  
+            obj = ret - sum(costs)
+            prob = cvx.Problem(cvx.Maximize(obj), constraints)
+            probs.append(prob)
+            zs.append(z)
+            w = w_plus
+
+        # TO DO: add terminal constraint       
+        
+        z_res = pd.Series(index=h.index, data = 0.0)
+        try:
+            sum(probs).solve()
+            if prob.status == cvx.UNBOUNDED:
+                logging.error('The problem is unbounded')
+            elif prob.status == cvx.INFEASIBLE:
+                logging.error('The problem is infeasible')
+            else:
+                z_res = pd.Series(index=h.index, data =zs[0].value.A1)
+        except cvx.SolverError:
+            logging.error('The solver failed')
+        #print(z_res)
+        #print('******')
+        return z_res

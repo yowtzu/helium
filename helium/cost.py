@@ -23,7 +23,7 @@ class BaseCost(object):
     #    w_plus = (h + u) / v
     #    return v * self.estimate(t, w_plus, z, v, t)
     
-    def expr(self, t, w_plus, z, v, tau):
+    def expr(self, t, w_plus, z, v, theta):
         """ A cvx expression that represents the cost
 
         Args:
@@ -33,10 +33,10 @@ class BaseCost(object):
             v: pre-trade portfolio dollar value
             tau: prediction time
         """
-        return self._expr(t, w_plus, z, v, tau)
+        return self._expr(t, w_plus, z, v, theta)
 
     @abstractmethod
-    def _expr(self, t, w_plus, z, v, tau):
+    def _expr(self, t, w_plus, z, v, theta):
          raise NotImplementedError
 
 #     def value_expr(self, t, w_plus, z, v, tau):
@@ -47,7 +47,7 @@ class BaseCost(object):
         raise NotImplementedError
     
     @abstractmethod
-    def _value_expr(self, t, w_plus, z, v, tau):
+    def _value_expr(self, t, w_plus, z, v, theta):
         raise NotImplementedError
 
     def simulation_log(self, t):
@@ -58,10 +58,20 @@ class BasicRiskCost(BaseCost):
         super().__init__(**kwargs)
         self.gamma = gamma
         self.sigmas = sigmas
+        self.gamma_half_life = kwargs.pop('gamma_half_life', None)
+        
+    def _expr(self, t, w_plus, z, v, theta):
+        gamma_multiplier = 1.
+        
+        if self.gamma_half_life:
+            decay_factor = 2 ** (-1 / self.gamma_half_life)
+            # TODO not dependent on days
+            gamma_init = decay_factor ** theta #((tau - t).days)
+            gamma_multiplier = gamma_init * \
+                (1 - decay_factor) / (1 - decay_factor)
 
-    def _expr(self, t, w_plus, z, v, tau):
         sigma = self.sigmas.loc[t].values
-        return self.gamma * cvx.quad_form(w_plus, sigma) 
+        return gamma_multiplier * self.gamma * cvx.quad_form(w_plus, sigma) 
 
 class FactorRiskCost(BaseCost):
     '''PCA Based Factor risk model'''    
@@ -92,7 +102,7 @@ class FactorRiskCost(BaseCost):
         for d in range(self.window_size, len(returns)):
             _pca_factor(returns.loc[d-window_size:d])
                                                       
-    def _expr(self, t, w_plus, z, v, tau):
+    def _expr(self, t, w_plus, z, v, theta):
         factor_risk = self.factor_risk[t]
         factor_loading = self.factor_loading[t]
         idiosync = self.idiosync.loc[t].values
@@ -112,7 +122,7 @@ class HoldingCost(BaseCost):
         self.borrow_costs = borrow_costs
         self.dividends = dividends
 
-    def _expr(self, t, w_plus, z, v, tau):
+    def _expr(self, t, w_plus, z, v, theta):
         """Estimate holding cost"""
         
         #borrow_costs = self.borrow_costs.loc[t].values
@@ -166,7 +176,7 @@ class TransactionCost(BaseCost):
         self.volumes = volumes
         self.asym_coef = asym_coef
 
-    def _expr(self, t, w_plus, z, v, tau):
+    def _expr(self, t, w_plus, z, v, theta):
         """Estimate transaction cost"""
         #TO DO make cash component zero
         z = z[:-1]

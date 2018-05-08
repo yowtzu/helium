@@ -5,13 +5,15 @@ import pandas as pd
 __all__ = [ 'DefaultRet', ]
 
 class BaseRet(object):
+    """Forecasted returns
+    """
     __metaclass__ = ABCMeta
 
     def __init__(self, **kwargs):
         self.w_benchmark = kwargs.pop('w_benchmark', 0.)
         self.cash_ticker = kwargs.pop('cash_ticker', '_CASH')
 
-    def expr(self, t, w_plus, z, v, tau):
+    def expr(self, t, w_plus, z, v, theta=0):
         """Returns the estimate at time t of alpha at time tau.
 
         Args:
@@ -20,45 +22,36 @@ class BaseRet(object):
             z: trade weights
             v: portfolio dollar value
             tau: prediction target time. if tau=None means t
+            theta: int: how many extra step extra to predict, default to 0 for single period
         """
-        if tau is None:
-            tau = t
         #TO DO to put back benchmark
-        return self._expr(t, w_plus, z, v, tau)
+        return self._expr(t, w_plus, z, v, theta)
 
     @abstractmethod
-    def _expr(self, t, w_plus, z, v, tau):
+    def _expr(self, t, w_plus, z, v, theta):
          raise NotImplementedError
 
 class DefaultRet(BaseRet):
-    def __init__(self, rets, deltas, gamma_decay, step=1, **kwargs):
+    def __init__(self, rets, deltas, gamma_decay, **kwargs):
+        """
+        Args:
+            rets: dictionary as_of_time: dataframe(forecast_time, ticker)
+            deltas: dictionary as_of_time: dataframe(forecast_time, ticker)
+        """
         super(DefaultRet, self).__init__(**kwargs)
         self.rets = rets
         self.deltas = deltas
         self.gamma_decay = gamma_decay
 
-    def _expr(self, t, w_plus, z, v, tau):
-        rets = self.rets.loc[t].values
-        deltas = self.deltas.loc[t].values
-        #TO DO
+    def _expr(self, t, w_plus, z, v, theta):
+        rets = self.rets[t].iloc[theta].values
+        deltas = self.deltas[t].iloc[theta].values
+        #rets = self.rets.loc[t].values
+        #deltas = self.deltas.loc[t].values
         alpha = cvx.mul_elemwise(rets, w_plus)
         alpha -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
         estimate = cvx.sum_entries(alpha)
         #estimate = w_plus.T * rets - cvx.abs(w_plus.T) * deltas
-        if tau > t and self.gamma_decay is not None:
-            estimate *= (tau - t).days**(-self.gamma_decay)
+        if theta > 0  and self.gamma_decay is not None:
+            estimate *= theta**(-self.gamma_decay)
         return estimate
-
-class RetForecast(BaseRet):
-    """A single alpha estimation.
-
-    Attributes:
-      return_estimates: A Multi-Index dataframes of return estimates.
-    """
-
-    def __init__(self, return_estimates, **kwargs):
-        super(MPReturnsForecast, self).__init__(**kwargs)
-        self.return_estimates = return_estimates
-
-    def _expr(self, t, w_plus, z, v, tau):
-        return self.return_estimates.iloc[(t, tau)].values.T * w_plus
