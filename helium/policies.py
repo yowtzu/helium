@@ -1,30 +1,25 @@
-from abc import ABCMeta, abstractmethod
+from abc import ABC, abstractmethod
 import pandas as pd
-import numpy as np
 import logging
 import cvxpy as cvx
 
-class BasePolicy(object):
-    """Base class for a trading policy."""
-    __metaclass__ = ABCMeta
 
-    def __init__(self):
-        pass
+class BasePolicy(ABC):
+    """Base class for a trading policy."""
 
     def get_trades(self, t, h: pd.Series):
         v = sum(h)
         return v * self.get_weights(t, h, None)
- 
-    @abstractmethod
+
     def get_weights(self, t, w: pd.Series, v: float):
-        return NotImplementedError
+        pass
+
 
 class MarketCapWeighted(BasePolicy):
     
-    def __init__(self, w_benchmark, time_steps):
+    def __init__(self, w_benchmark=0.):
         self.w_benchmark = w_benchmark
-        self.time_steps = time_steps
-        super(ProportionalTrade, self).__init__()
+        super().__init__()
 
     def get_weights(self, t, w: pd.Series, v: float):
         z = self.w_benchmark.loc[t] - w
@@ -32,12 +27,11 @@ class MarketCapWeighted(BasePolicy):
 
 
 class Hold(BasePolicy):
-    """Hold initial portfolio.
-    """
+    """Hold initial portfolio."""
     def get_weights(self, t, w: pd.Series, v: float):
         return pd.Series(index=w.index, data = 0.0)
 
-    
+
 class PeriodicRebalance(BasePolicy):
     """Track a target portfolio, rebalancing at given times.
     """
@@ -68,20 +62,14 @@ class PeriodicRebalance(BasePolicy):
     def get_trades(self, t, h):
         return self._rebalance(h) if self.is_start_period(t) else \
             pd.Series(index=h.index, data = 0.0)
-        
-    #def get_weights(self, t, w: pd.Series, v: float):
-    #    if self.is_start_period(t):
-    #        return self.target - w
-    #    else:
-    #        return pd.Series(index=w.index, data = 0.0)
 
         
 class SinglePeriodOpt(BasePolicy):
     
-    def __init__(self, rets, costs, constraints):
+    def __init__(self, returns, costs, constraints):
         super().__init__()
   
-        self.rets = rets
+        self.retsurn = returns
         self.costs = costs
         self.constraints = constraints
 
@@ -91,7 +79,7 @@ class SinglePeriodOpt(BasePolicy):
         z = cvx.Variable(w.size)
         w_plus = w.values + z 
         ### Equation 4.4 & 4.5
-        ret = self.rets.expr(t, w_plus, z, v, 0)
+        ret = self.retsurn.expr(t, w_plus, z, v, 0)
         assert(ret.is_concave())
         costs = [ cost.expr(t, w_plus, z, v, 0) for cost in self.costs ] 
         for cost in costs:
@@ -124,10 +112,10 @@ class SinglePeriodOpt(BasePolicy):
         return z_res
 
 class MultiPeriodOpt(BasePolicy):
-    def __init__(self, rets, costs, constraints, steps = 2):
+    def __init__(self, returns, costs, constraints, steps = 2):
         super().__init__()
   
-        self.rets = rets
+        self.returns = returns
         self.costs = costs
         self.constraints = constraints
         self.steps = steps
@@ -145,7 +133,7 @@ class MultiPeriodOpt(BasePolicy):
             w_plus = w + z 
             #print(w_plus)
             ### Equation 4.4 & 4.5
-            ret = self.rets.expr(t, w_plus, z, v, step)            
+            ret = self.returns.expr(t, w_plus, z, v, step)
             costs = [ cost.expr(t, w_plus, z, v, step) for cost in self.costs ] 
             constraints = [ cvx.sum_entries(z) == 0 ] 
             constraints += [ const.expr(t, w_plus, z, v, step) for const in self.constraints ] 
@@ -161,8 +149,6 @@ class MultiPeriodOpt(BasePolicy):
         z_res = pd.Series(index=h.index, data = 0.)
         try:
             bla = sum(probs)
-            #print(t)
-            #print(bla)
             bla.solve()
             if prob.status == cvx.UNBOUNDED:
                 logging.error('The problem is unbounded')
@@ -172,6 +158,5 @@ class MultiPeriodOpt(BasePolicy):
                 z_res = pd.Series(index=h.index, data =zs[0].value.A1)
         except cvx.SolverError:
             logging.error('The solver failed')
-        #print(z_res)
-        #print('******')
+
         return z_res

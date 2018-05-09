@@ -1,9 +1,8 @@
 __version__ = "0.0.1"
 
-from .constraint import *
-from .cost import *
-from .policy import *
+from .constraints import *
+from .costs import *
+from .policies import *
 from .simulator import *
-from .result import *
-from .ret import *
-from .risk import *
+from .results import *
+from .returns import *
