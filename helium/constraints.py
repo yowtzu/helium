@@ -23,7 +23,6 @@ class BaseConstraint(ABC):
             w_plus: post-trade weights
             z: trade weights
             v: portfolio dollar value
-            tau: prediction target time. if tau=None means t
             theta: int: how many extra step extra to predict, default to 0 for single period
         """
         return self._expr(t, w_plus - self.w_benchmark, z, v, theta)

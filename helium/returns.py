@@ -16,7 +16,8 @@ class BaseReturns(ABC):
         self.w_benchmark = w_benchmark
         self.cash_ticker = cash_ticker
 
-    def expr(self, t, w_plus, z, v, theta=0):
+    @abstractmethod
+    def expr(self, t, w_plus, z, v, theta):
         """Returns the estimate at time t of alpha at time tau.
 
         Args:
@@ -27,11 +28,7 @@ class BaseReturns(ABC):
             theta: int: how many extra step extra to predict, default to 0 for single period
         """
         # TO DO to put back benchmark
-        return self._expr(t, w_plus, z, v, theta)
-
-    @abstractmethod
-    def _expr(self, t, w_plus, z, v, theta):
-        return
+        pass
 
 
 class DefaultReturns(BaseReturns):
@@ -46,16 +43,16 @@ class DefaultReturns(BaseReturns):
         self.deltas = deltas
         self.gamma_decay = gamma_decay
 
-    def _expr(self, t, w_plus, z, v, theta):
+    def expr(self, t, w_plus, z, v, theta=0):
         returns = self.returns[t].iloc[theta].values
         deltas = self.deltas[t].iloc[theta].values
 
         #####
-        # alpha = cvx.mul_elemwise(rets, w_plus)
+        # alpha = cvx.mul_elemwise(returns, w_plus)
         # alpha -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
         # estimate = cvx.sum_entries(alpha)
         ######
-        # estimate = rets.T * w_plus
+        # estimate = returns.T * w_plus
         #####
 
         estimate = returns.T * w_plus - cvx.abs(w_plus.T) * deltas
