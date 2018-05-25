@@ -64,43 +64,47 @@ class BasicRiskCost(BaseCost):
 
 class FactorRiskCost(BaseCost):
     """PCA Based Factor risk model"""
-    def __init__(self, gamma, returns, window_size, n_factors, **kwargs):
+    def __init__(self, gamma, returns, window_size: int , n_factors: int, **kwargs):
         super().__init__(**kwargs)
         self.gamma = gamma
-        self._construct_factor_model(returns)
         self.window_size = window_size
         self.n_factors = n_factors
+
+        self.factor = {}
+        self.sigma = {}
+        self.idiosync = {}
+
+        self._construct_factor_model(returns)
 
     def realised_value(self, t, h_plus, u):
         # TO DO
         return 0.
 
-    def _construct_factor_model(self, returns, window_size, n_factors, **kwargs):
-        self.factor = {}
-        self.sigma = {}
-        self.idiosync = {}
-        
-        def _pca_factor(df):
-            t = df.index[-1]
-            k = self.n_factors
-            second_moments = df.values.T@df.values / df.values.shape[0]
+    def _construct_factor_model(self, returns):
+
+        def _pca_factor(d, df):
+            second_moments = df.values.T@df.values / self.window_size
             eigen_values, eigen_vectors = np.linalg.eigh(second_moments)
          
             # eigen_values are returned in ascending oarder
-            self.factor[t] = eigen_values[-k:]
-            self.sigma[t] = eigen_vectors[:, -k:]
+            self.factor[d] = eigen_values[-self.n_factors:]
+            self.sigma[d] = eigen_vectors[:, -self.n_factors:]
+
             # residuals
-            self.idiosync[t] = eigen_vectors[:, :-k]@np.diag(eigen_values[:-k])@eigen_vectors[:, :-k].T
+            self.idiosync[d] = eigen_vectors[:, :-self.n_factors]@np.diag(eigen_values[:-self.n_factors])@eigen_vectors[:, :-self.n_factors].T
         
-        for d in range(self.window_size, len(returns)):
-            _pca_factor(returns.loc[d-window_size:d])
+        for d in returns.index[self.window_size:]:
+            _pca_factor(d, returns.loc[:d].iloc[-self.window_size:])
                                                       
     def expr(self, t, w_plus, z, v, theta):
-        factor_risk = self.factor_risk[t]
-        factor_loading = self.factor_loading[t]
+        factor = self.factor[t]
+        sigma = self.sigma[t]
         idiosync = self.idiosync.loc[t].values
-        return self.gamma * cvx.quad_form(w_plus.T * factor_loading, * factor_risk)
 
+        expression = cvx.sum_squares(cvx.mul_elemwise(np.sqrt(idiosync), w_plus))
+        expression += cvx.quad_form(w_plus.T * factor, sigma)
+        expression = self.gamma * expression
+        return expression
 
 class HoldingCost(BaseCost):
     """Model the holding costs"""
@@ -161,10 +165,9 @@ class TransactionCost(BaseCost):
         z_abs = cvx.abs(z)
         sigma = self.sigmas.loc[t].values[:-1]
         volumes = self.volumes.loc[t].values[:-1]
-        
+        half_spread = self.half_spread.loc[t].values[:-1]
         # this is a n-1 vector
-        cost = cvx.mul_elemwise(self.half_spread, z_abs)
-        
+        cost = cvx.mul_elemwise(half_spread, z_abs)
         # v is atom
         # volumes is n-1 vector
         # this stage, it is numpy term, hence auto element wise multiplication
@@ -183,7 +186,8 @@ class TransactionCost(BaseCost):
         u_abs = np.abs(u)
         sigma = self.sigmas.loc[t].values[:-1]
         volumes = self.volumes.loc[t].values[:-1]
-        cost = self.half_spread * u_abs + \
+        half_spread = self.half_spread.loc[t].values[:-1]
+        cost = half_spread * u_abs + \
             self.nonlin_coef * sigma * u_abs**self.nonlin_power / volumes**(self.nonlin_power-1) + \
             self.asym_coef * u
 #         print("volume:{}".format(volumes))
