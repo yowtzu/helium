@@ -1,7 +1,7 @@
 from abc import ABC, abstractmethod
 import cvxpy as cvx
 
-__all__ = ['TradeLimitConstraint', 'LongOnlyConstraint', 'LeverageLimitConstraint', 'MinCashBalanceConstraint', ]
+__all__ = ['TradeLimitConstraint', 'LongOnlyConstraint', 'LeverageLimitConstraint', 'MinCashBalanceConstraint', 'TurnoverConstraint', 'MaximumHolding']
 
 
 class BaseConstraint(ABC):
@@ -74,7 +74,6 @@ class LeverageLimitConstraint(BaseConstraint):
     def _expr(self, t, w_plus, z, v, theta):
         return cvx.norm(w_plus, 1) <= self.limit
 
-
 class MinCashBalanceConstraint(BaseConstraint):
     """Constraint on minimum amount of cash on holding at each step"""
 
@@ -94,3 +93,38 @@ class MinCashBalanceConstraint(BaseConstraint):
 
     def _expr(self, t, w_plus, z, v, theta):
         return w_plus[self.cash_ticker] >= self.threshold
+
+class TurnoverConstraint(BaseConstraint):
+    """Constraint on turnover"""
+
+    def __init__(self, limit, **kwargs):
+        """
+        Args:
+            limit: 2 way turnover in term of percentage of portfolio size
+        """
+        self.limit = limit
+        super().__init__(**kwargs)
+
+    def _expr(self, t, w_plus, z, v, theta):
+        return cvx.norm(z, 1) <= self.limit
+
+
+class MaximumHolding(BaseConstraint):
+    """Constraint on minimum amount of cash on holding at each step"""
+
+    def __init__(self, threshold, **kwargs):
+        """Create a list of optimisation constraints
+
+        Args:
+            t: time
+            w_plus: post-trade weights
+            z: trade weights
+            v: portfolio dollar value
+            theta: prediction step ahead
+            threshold: the minimum of cash to hold in percentage term
+        """
+        self.threshold = threshold
+        super().__init__(**kwargs)
+
+    def _expr(self, t, w_plus, z, v, theta):
+        return w_plus <= self.threshold

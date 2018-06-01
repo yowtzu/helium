@@ -55,8 +55,9 @@ class DefaultReturns(BaseReturns):
         # estimate = returns.T * w_plus
         #####
 
-        estimate = returns.T * w_plus - cvx.abs(w_plus.T) * deltas
-
+        estimate = cvx.mul_elemwise(returns, w_plus)
+        estimate -= cvx.mul_elemwise(deltas, cvx.abs(w_plus))
+        estimate = cvx.sum_entries(estimate)
         if theta > 0 and self.gamma_decay is not None:
             estimate *= theta ** (-self.gamma_decay)
         return estimate
